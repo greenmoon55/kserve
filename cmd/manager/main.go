@@ -44,6 +44,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	cachedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/cachedmodel"
 	graphcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph"
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
@@ -222,6 +223,19 @@ func main() {
 		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(mgr.GetClient(), clientSet, mgr.GetScheme()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controllers", "TrainedModel")
+		os.Exit(1)
+	}
+
+	// Setup CachedModel controller
+	cachedModelEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up v1alpha1 CachedModel controller")
+	cachedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&cachedmodelcontroller.CachedModelReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("CachedModel"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "CachedModel")
 		os.Exit(1)
 	}
 
