@@ -231,9 +231,10 @@ func main() {
 	setupLog.Info("Setting up v1alpha1 CachedModel controller")
 	cachedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 	if err = (&cachedmodelcontroller.CachedModelReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("CachedModel"),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("CachedModel"),
+		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "CachedModel")
 		os.Exit(1)
