@@ -50,7 +50,7 @@ class V1alpha1ClusterCachedModelSpec(object):
         'cleanup_policy': 'str',
         'model_size': 'ResourceQuantity',
         'node_group': 'str',
-        'persistent_volume': 'V1PersistentVolumeClaim',
+        'persistent_volume': 'V1PersistentVolume',
         'persistent_volume_claim': 'V1PersistentVolumeClaim',
         'storage_type': 'str',
         'storage_uri': 'str'
@@ -168,7 +168,7 @@ class V1alpha1ClusterCachedModelSpec(object):
 
 
         :return: The persistent_volume of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :rtype: V1PersistentVolumeClaim
+        :rtype: V1PersistentVolume
         """
         return self._persistent_volume
 
@@ -178,7 +178,7 @@ class V1alpha1ClusterCachedModelSpec(object):
 
 
         :param persistent_volume: The persistent_volume of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :type: V1PersistentVolumeClaim
+        :type: V1PersistentVolume
         """
         if self.local_vars_configuration.client_side_validation and persistent_volume is None:  # noqa: E501
             raise ValueError("Invalid value for `persistent_volume`, must not be `None`")  # noqa: E501

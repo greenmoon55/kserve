@@ -120,7 +120,7 @@
         "persistentVolume": {
           "description": "PV spec template",
           "default": {},
-          "$ref": "#/definitions/v1.PersistentVolumeClaim"
+          "$ref": "#/definitions/v1.PersistentVolume"
         },
         "persistentVolumeClaim": {
           "description": "PVC spec template",

@@ -38,7 +38,7 @@ type ClusterCachedModelSpec struct {
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
 	// PV spec template
-	PersistentVolume corev1.PersistentVolumeClaim `json:"persistentVolume"`
+	PersistentVolume corev1.PersistentVolume `json:"persistentVolume"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
 	// PVC spec template
 	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`

@@ -302,7 +302,7 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Description: "PV spec template",
 							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolume"),
 						},
 					},
 					"persistentVolumeClaim": {
@@ -317,7 +317,7 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaim", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.PersistentVolume", "k8s.io/api/core/v1.PersistentVolumeClaim", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
