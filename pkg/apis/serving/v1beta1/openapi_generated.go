@@ -192,11 +192,17 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModel(ref common.ReferenceCal
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CachedModelStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CachedModelStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 

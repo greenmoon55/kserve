@@ -377,6 +377,41 @@ spec:
             - storageType
             - storageUri
             type: object
+          status:
+            properties:
+              copies:
+                properties:
+                  failedCopies:
+                    default: 0
+                    type: integer
+                  totalCopies:
+                    type: integer
+                required:
+                - failedCopies
+                type: object
+              nodeStatus:
+                additionalProperties:
+                  enum:
+                  - ""
+                  - Ready
+                  - Unknown
+                  - Downloading
+                  - Deleting
+                  - Deleted
+                  type: string
+                type: object
+              overallStatus:
+                enum:
+                - ""
+                - Ready
+                - Unknown
+                - Downloading
+                - Deleting
+                - Deleted
+                type: string
+            type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

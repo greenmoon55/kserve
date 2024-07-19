@@ -67,12 +67,14 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Cluster"
 type ClusterCachedModel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec ClusterCachedModelSpec `json:"spec,omitempty"`
+	Spec   ClusterCachedModelSpec `json:"spec,omitempty"`
+	Status CachedModelStatus      `json:"status,omitempty"`
 }
 
 // +k8s:openapi-gen=true

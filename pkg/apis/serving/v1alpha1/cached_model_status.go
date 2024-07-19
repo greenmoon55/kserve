@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 type CachedModelStatus struct {
-	OverallStatus OverallStatus         `json:"address,omitempty"`
+	OverallStatus OverallStatus         `json:"overallStatus,omitempty"`
 	NodeStatus    map[string]NodeStatus `json:"nodeStatus,omitempty"`
 
 	// How many nodes have the model available

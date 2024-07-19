@@ -57,6 +57,10 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha1.ClusterCachedModelSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.CachedModelStatus"
         }
       }
     },

@@ -30,6 +30,7 @@ import (
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -46,18 +47,26 @@ type CachedModelReconciler struct {
 	Scheme    *runtime.Scheme
 }
 
-func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, cmd *string, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme) {
+func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, cmd *string, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme, storageUri string) *batchv1.Job {
 	jobs := clientset.BatchV1().Jobs(*namespace)
 	var backOffLimit int32 = 0
+	log.Printf("Job %s %s", *namespace, *jobName)
 
-	existingJob, err := jobs.Get(context.TODO(), *jobName, metav1.GetOptions{})
+	job, err := jobs.Get(context.TODO(), *jobName, metav1.GetOptions{})
 	if err != nil {
-		log.Fatalln("Get job err")
+		if !apierr.IsNotFound(err) {
+			log.Fatalln("Get job err", err)
+		}
+		// log.Fatalln("IsNotfound", err)
+	} else {
+		log.Println("Job exists, returning")
+		log.Printf("Success %d", job.Status.Succeeded)
+		return job
 	}
-	if existingJob != nil {
-		log.Printf("Job exists %s %s", existingJob.Namespace, existingJob.Name)
-		return
-	}
+	// if existingJob != nil {
+	// 	log.Printf("Job exists %s %s", existingJob.Namespace, existingJob.Name)
+	// 	return
+	// }
 
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -69,12 +78,30 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:    *jobName,
-							Image:   *image,
-							Command: []string{"perl", "-Mbignum=bpi", "-wle", "print bpi(2000)"},
+							Name:  *jobName,
+							Image: *image,
+							Args:  []string{storageUri, "/mnt/models"},
+							// Command: []string{"perl", "-Mbignum=bpi", "-wle", "print bpi(2000)"},
+							VolumeMounts: []v1.VolumeMount{{
+								MountPath: "/mnt/models",
+								Name:      "kserve-pvc-source",
+								ReadOnly:  false,
+								SubPath:   "models/" + *jobName,
+							},
+							},
 						},
 					},
 					RestartPolicy: v1.RestartPolicyNever,
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "model-cache",
+								},
+							},
+						},
+					},
 				},
 			},
 			BackoffLimit: &backOffLimit,
@@ -85,13 +112,14 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 		log.Fatalln("set controller reference", err)
 	}
 
-	_, err = jobs.Create(context.TODO(), jobSpec, metav1.CreateOptions{})
+	job, err = jobs.Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	if err != nil {
 		log.Fatalln("Failed to create K8s job.", err)
 	}
 
 	//print job details
 	log.Printf("Created K8s job successfully %s %s", *jobName, *namespace)
+	return job
 }
 
 func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
@@ -119,9 +147,9 @@ func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Hello from model cache controller")
 	// jobName := "hello"
-	containerImage := "perl:5.34.0"
+	// containerImage := "perl:5.34.0"
 	entryCommand := "perl -Mbignum=bpi -wle print bpi(2000)"
-	namespace := "kserve"
+	namespace := "kserve-test"
 
 	// Fetch the InferenceService instance
 	cachedModel := &v1alpha1api.ClusterCachedModel{}
@@ -137,7 +165,20 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log.Println(req.NamespacedName.Name)
 	log.Println(req.NamespacedName.Namespace)
 
-	launchK8sJob(c.Clientset, &req.NamespacedName.Name, &containerImage, &entryCommand, &namespace, cachedModel, c.Scheme)
+	job := launchK8sJob(c.Clientset, &req.NamespacedName.Name, &container.Image, &entryCommand, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri)
+	if job.Status.Succeeded == 1 {
+		log.Println("Update status to ready")
+		cachedModel.Status.OverallStatus = v1alpha1.ModelReady
+		if err := c.Status().Update(context.TODO(), cachedModel); err != nil {
+			log.Fatalln("cannot update status", err)
+		}
+	} else {
+		log.Println("Update status to not ready")
+		cachedModel.Status.OverallStatus = v1alpha1.ModelDownloading
+		if err := c.Status().Update(context.TODO(), cachedModel); err != nil {
+			log.Fatalln("cannot update status", err)
+		}
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -145,5 +186,6 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.ClusterCachedModel{}).
+		Owns(&batchv1.Job{}).
 		Complete(c)
 }
