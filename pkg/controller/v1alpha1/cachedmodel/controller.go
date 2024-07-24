@@ -225,6 +225,7 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.ClusterCachedModel{}).
+		// For(&v1beta1.InferenceService{}).
 		Owns(&batchv1.Job{}).
 		Owns(&v1.PersistentVolume{}).
 		Owns(&v1.PersistentVolumeClaim{}).
