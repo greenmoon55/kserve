@@ -224,6 +224,16 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
+	isvcs := &v1beta1.InferenceServiceList{}
+	if err = c.Client.List(context.TODO(), isvcs, client.MatchingLabels{constants.ModelCacheEnabled: cachedModel.Name}); err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("Got isvcs", len(isvcs.Items))
+	for _, isvc := range isvcs.Items {
+		log.Println(isvc.Name)
+		log.Println(isvc.Namespace)
+	}
+
 	return reconcile.Result{}, nil
 }
 
