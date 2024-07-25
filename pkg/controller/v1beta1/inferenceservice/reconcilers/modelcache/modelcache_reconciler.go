@@ -20,14 +20,13 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var log = logf.Log.WithName("ModelCacheReconciler")
@@ -66,15 +65,18 @@ func getModelCacheSpecForStorageUri(storageUri string, client client.Client) (*v
 func (c *ModelCacheReconciler) Reconcile(isvc *v1beta1api.InferenceService) error {
 	log.Info("ModelCacheReconciler", isvc.Namespace, isvc.Name)
 
-	cachedModel := &v1alpha1api.ClusterCachedModel{}
-
 	modelcache, err := getModelCacheSpecForStorageUri(c.storageUri, c.client)
 	if err != nil {
 		return err
 	}
-	namespacedName := types.NamespacedName{Name: modelcache.Name}
-	if err := c.client.Get(context.TODO(), namespacedName, cachedModel); err != nil {
-		return err
+
+	if isvc.Labels == nil {
+		isvc.Labels = make(map[string]string)
+	}
+	name, ok := isvc.Labels[constants.ModelCacheEnabled]
+	if !ok || name != modelcache.Name {
+		isvc.Labels[constants.ModelCacheEnabled] = modelcache.Name
+		c.client.Update(context.Background(), isvc)
 	}
 
 	// pvSpec := cachedModel.Spec.PersistentVolume

@@ -59,6 +59,11 @@ var (
 	TrainedModelAllocated = KServeAPIGroupName + "/" + "trainedmodel-allocated"
 )
 
+// CachedModel Constants
+var (
+	ModelCacheEnabled = KServeAPIGroupName + "/" + "modelcache-enabled"
+)
+
 // InferenceService MultiModel Constants
 var (
 	ModelConfigFileName = "models.json"

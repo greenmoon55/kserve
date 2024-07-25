@@ -46,6 +46,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelcache"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -256,6 +257,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := configMapReconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
+	}
+
+	storageUri := isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	if storageUri != nil {
+		modelCacheReconciler := modelcache.NewModelCacheReconciler(r.Client, r.Clientset, r.Scheme, *storageUri)
+		if err := modelCacheReconciler.Reconcile(isvc); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if err = r.updateStatus(isvc, deploymentMode); err != nil {

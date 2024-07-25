@@ -32,6 +32,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -230,20 +231,30 @@ func (c *CachedModelReconciler) myFunc(ctx context.Context, obj client.Object) [
 	log.Println("In myFunc")
 	log.Println(obj.GetName())
 	log.Println(obj.GetNamespace())
+	isvc := &v1beta1.InferenceService{}
+	if err := c.Get(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, isvc); err != nil {
+		log.Println("err", err) // can be deleted
+		return []reconcile.Request{}
+	}
+	name := ""
+	var ok bool
+	if isvc.Labels != nil {
+		if name, ok = isvc.Labels[constants.ModelCacheEnabled]; ok {
+			log.Println("name", name)
+		}
+	}
+	if name == "" {
+		return []reconcile.Request{}
+	}
 	cachedModel := &v1alpha1api.ClusterCachedModel{}
-	if err := c.Get(ctx, types.NamespacedName{Name: "iris"}, cachedModel); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: name}, cachedModel); err != nil {
 		log.Println("err", err)
 		return []reconcile.Request{}
 	}
-	// q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-	// 	Name: "iris",
-	// 	// Namespace: evt.Object.GetNamespace(),
-	// }})
 
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
-			Name: "iris",
-			// Namespace: .Namespace,
+			Name: name,
 		}}}
 }
 
