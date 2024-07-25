@@ -213,15 +213,9 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if job.Status.Succeeded == 1 {
 		log.Println("Update status to ready")
 		cachedModel.Status.OverallStatus = v1alpha1.ModelReady
-		if err := c.Status().Update(context.TODO(), cachedModel); err != nil {
-			log.Fatalln("cannot update status", err)
-		}
 	} else {
 		log.Println("Update status to not ready")
 		cachedModel.Status.OverallStatus = v1alpha1.ModelDownloading
-		if err := c.Status().Update(context.TODO(), cachedModel); err != nil {
-			log.Fatalln("cannot update status", err)
-		}
 	}
 
 	isvcs := &v1beta1.InferenceServiceList{}
@@ -229,9 +223,14 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		log.Fatalln(err)
 	}
 	log.Println("Got isvcs", len(isvcs.Items))
+	isvcNames := []v1alpha1.NamespacedName{}
 	for _, isvc := range isvcs.Items {
-		log.Println(isvc.Name)
-		log.Println(isvc.Namespace)
+		log.Println(isvc.Name, isvc.Namespace)
+		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
+	}
+	cachedModel.Status.InferenceServices = isvcNames
+	if err := c.Status().Update(context.TODO(), cachedModel); err != nil {
+		log.Fatalln("cannot update status", err)
 	}
 
 	return reconcile.Result{}, nil
