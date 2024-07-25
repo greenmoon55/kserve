@@ -252,6 +252,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
+		// modelCacheReconciler := modelcache.NewModelCacheReconciler(p.client, p.clientset, p.scheme, *sourceURI)
+		// if err := modelCacheReconciler.Reconcile(isvc); err != nil {
+		// 	return reconcile.Result{}, err
+		// }
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)

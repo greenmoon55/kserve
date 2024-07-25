@@ -22,7 +22,13 @@ type CachedModelStatus struct {
 
 	// How many nodes have the model available
 	// +optional
-	ModelCopies *ModelCopies `json:"copies,omitempty"`
+	ModelCopies       *ModelCopies     `json:"copies,omitempty"`
+	InferenceServices []NamespacedName `json:"infereneceServices,omitempty"`
+}
+
+type NamespacedName struct {
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 // NodeStatus enum

@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clustercachedmodels,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clustercachedmodels/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
@@ -30,15 +31,18 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -222,12 +226,33 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return reconcile.Result{}, nil
 }
 
+func (c *CachedModelReconciler) myFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	log.Println("In myFunc")
+	log.Println(obj.GetName())
+	log.Println(obj.GetNamespace())
+	cachedModel := &v1alpha1api.ClusterCachedModel{}
+	if err := c.Get(ctx, types.NamespacedName{Name: "iris"}, cachedModel); err != nil {
+		log.Println("err", err)
+		return []reconcile.Request{}
+	}
+	// q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+	// 	Name: "iris",
+	// 	// Namespace: evt.Object.GetNamespace(),
+	// }})
+
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name: "iris",
+			// Namespace: .Namespace,
+		}}}
+}
+
 func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.ClusterCachedModel{}).
-		// For(&v1beta1.InferenceService{}).
 		Owns(&batchv1.Job{}).
 		Owns(&v1.PersistentVolume{}).
 		Owns(&v1.PersistentVolumeClaim{}).
+		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.myFunc)).
 		Complete(c)
 }

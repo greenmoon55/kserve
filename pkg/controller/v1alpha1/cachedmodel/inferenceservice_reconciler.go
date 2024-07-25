@@ -29,13 +29,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	apierr "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -97,49 +94,68 @@ func (c *CachedModelInferenceServiceReconciler) Reconcile(ctx context.Context, r
 		return reconcile.Result{}, err
 	}
 
+	var deleted bool
+
+	if !isvc.ObjectMeta.DeletionTimestamp.IsZero() {
+		deleted = true
+		log.Println("the isvc is being deleted")
+	} else {
+		deleted = false
+		log.Println("the isvc is not being deleted")
+	}
+
 	storageUri := isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 
 	cachedModel, err := getModelCacheSpecForStorageUri(*storageUri, c.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	pvSpec := cachedModel.Spec.PersistentVolume
-	pvSpec.Name = cachedModel.Name + "-" + isvc.Namespace
-	persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
-	if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
-		if !apierr.IsNotFound(err) {
-			log.Fatalln("Get pv err", err)
-		}
-		log.Println("Creating PV")
-		if err := controllerutil.SetControllerReference(cachedModel, &pvSpec, c.Scheme); err != nil {
-			log.Fatalln("set controller reference", err)
-		}
-		if _, err := persistentVolumes.Create(context.TODO(), &pvSpec, metav1.CreateOptions{}); err != nil {
-			log.Fatalln("Create pv err", err)
-		}
-		log.Println("PV Created")
+	if cachedModel == nil {
+		return reconcile.Result{}, nil
 	}
-	log.Println("PV Exists")
+	if !deleted {
+		// cachedModel.Status.InferenceServices[v1alpha1.NamespacedName{Namespace: isvc.Namespace, Name: isvc.Name}] = struct{}{}
 
-	pvcSpec := cachedModel.Spec.PersistentVolumeClaim
-	pvcSpec.Name = cachedModel.Name
-	pvcSpec.Spec.VolumeName = pvSpec.Name
-	persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(isvc.Namespace)
-	log.Println("Checking PVC")
-	if _, err := persistentVolumeClaims.Get(context.TODO(), pvcSpec.Name, metav1.GetOptions{}); err != nil {
-		if !apierr.IsNotFound(err) {
-			log.Fatalln("Get pvc err", err)
-		}
-		log.Println("Creating PVC")
-		if err := controllerutil.SetControllerReference(cachedModel, &pvcSpec, c.Scheme); err != nil {
-			log.Fatalln("set controller reference", err)
-		}
-		if _, err := persistentVolumeClaims.Create(context.TODO(), &pvcSpec, metav1.CreateOptions{}); err != nil {
-			log.Fatalln("Create PVC err", err)
-		}
-		log.Println("PVC Created")
+		// pvSpec := cachedModel.Spec.PersistentVolume
+		// pvSpec.Name = cachedModel.Name + "-" + isvc.Namespace
+		// persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
+		// if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
+		// 	if !apierr.IsNotFound(err) {
+		// 		log.Fatalln("Get pv err", err)
+		// 	}
+		// 	log.Println("Creating PV")
+		// 	if err := controllerutil.SetControllerReference(cachedModel, &pvSpec, c.Scheme); err != nil {
+		// 		log.Fatalln("set controller reference", err)
+		// 	}
+		// 	if _, err := persistentVolumes.Create(context.TODO(), &pvSpec, metav1.CreateOptions{}); err != nil {
+		// 		log.Fatalln("Create pv err", err)
+		// 	}
+		// 	log.Println("PV Created")
+		// }
+		// log.Println("PV Exists")
+
+		// pvcSpec := cachedModel.Spec.PersistentVolumeClaim
+		// pvcSpec.Name = cachedModel.Name
+		// pvcSpec.Spec.VolumeName = pvSpec.Name
+		// persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(isvc.Namespace)
+		// log.Println("Checking PVC")
+		// if _, err := persistentVolumeClaims.Get(context.TODO(), pvcSpec.Name, metav1.GetOptions{}); err != nil {
+		// 	if !apierr.IsNotFound(err) {
+		// 		log.Fatalln("Get pvc err", err)
+		// 	}
+		// 	log.Println("Creating PVC")
+		// 	if err := controllerutil.SetControllerReference(cachedModel, &pvcSpec, c.Scheme); err != nil {
+		// 		log.Fatalln("set controller reference", err)
+		// 	}
+		// 	if _, err := persistentVolumeClaims.Create(context.TODO(), &pvcSpec, metav1.CreateOptions{}); err != nil {
+		// 		log.Fatalln("Create PVC err", err)
+		// 	}
+		// 	log.Println("PVC Created")
+		// }
+	} else {
+		// delete(cachedModel.Status.InferenceServices, v1alpha1.NamespacedName{Namespace: isvc.Namespace, Name: isvc.Name})
 	}
+	// client.Update(context.TODO(), cachedModel.Status)
 
 	return reconcile.Result{}, nil
 }

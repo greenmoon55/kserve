@@ -240,20 +240,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup CachedModel Isvc controller
-	cachedModelEventIsvcBroadcaster := record.NewBroadcaster()
-	setupLog.Info("Setting up v1alpha1 CachedModel isvc controller")
-	cachedModelEventIsvcBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&cachedmodelcontroller.CachedModelInferenceServiceReconciler{
-		Client:    mgr.GetClient(),
-		Clientset: clientSet,
-		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("CachedModelIsvc"),
-		Scheme:    mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "CachedModelIsvc")
-		os.Exit(1)
-	}
-
 	// Setup Inference graph controller
 	inferenceGraphEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up InferenceGraph controller")

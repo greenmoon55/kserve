@@ -23,14 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	apierr "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var log = logf.Log.WithName("ModelCacheReconciler")
@@ -80,41 +77,41 @@ func (c *ModelCacheReconciler) Reconcile(isvc *v1beta1api.InferenceService) erro
 		return err
 	}
 
-	pvSpec := cachedModel.Spec.PersistentVolume
-	pvSpec.Name = cachedModel.Name + "-" + isvc.Namespace
-	persistentVolumes := c.clientset.CoreV1().PersistentVolumes()
-	if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
-		if !apierr.IsNotFound(err) {
-			log.Info("Get pv err", err)
-		}
-		log.Info("Creating PV")
-		if _, err := persistentVolumes.Create(context.TODO(), &pvSpec, metav1.CreateOptions{}); err != nil {
-			log.Info("Create pv err", err)
-		}
-		log.Info("PV Created")
-		if err := controllerutil.SetControllerReference(cachedModel, &pvSpec, c.scheme); err != nil {
-			log.Info("set controller reference", err)
-		}
-	}
-	log.Info("PV Exists")
+	// pvSpec := cachedModel.Spec.PersistentVolume
+	// pvSpec.Name = cachedModel.Name + "-" + isvc.Namespace
+	// persistentVolumes := c.clientset.CoreV1().PersistentVolumes()
+	// if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
+	// 	if !apierr.IsNotFound(err) {
+	// 		log.Info("Get pv err", err)
+	// 	}
+	// 	log.Info("Creating PV")
+	// 	if _, err := persistentVolumes.Create(context.TODO(), &pvSpec, metav1.CreateOptions{}); err != nil {
+	// 		log.Info("Create pv err", err)
+	// 	}
+	// 	log.Info("PV Created")
+	// 	if err := controllerutil.SetControllerReference(cachedModel, &pvSpec, c.scheme); err != nil {
+	// 		log.Info("set controller reference", err)
+	// 	}
+	// }
+	// log.Info("PV Exists")
 
-	pvcSpec := cachedModel.Spec.PersistentVolumeClaim
-	pvcSpec.Name = cachedModel.Name
-	pvcSpec.Spec.VolumeName = pvSpec.Name
-	persistentVolumeClaims := c.clientset.CoreV1().PersistentVolumeClaims(isvc.Namespace)
-	log.Info("Checking PVC")
-	if _, err := persistentVolumeClaims.Get(context.TODO(), pvcSpec.Name, metav1.GetOptions{}); err != nil {
-		if !apierr.IsNotFound(err) {
-			log.Info("Get pvc err", err)
-		}
-		log.Info("Creating PVC")
-		if _, err := persistentVolumeClaims.Create(context.TODO(), &pvcSpec, metav1.CreateOptions{}); err != nil {
-			log.Info("Create PVC err", err)
-		}
-		log.Info("PVC Created")
-		if err := controllerutil.SetControllerReference(cachedModel, &pvcSpec, c.scheme); err != nil {
-			log.Info("set controller reference", err)
-		}
-	}
+	// pvcSpec := cachedModel.Spec.PersistentVolumeClaim
+	// pvcSpec.Name = cachedModel.Name
+	// pvcSpec.Spec.VolumeName = pvSpec.Name
+	// persistentVolumeClaims := c.clientset.CoreV1().PersistentVolumeClaims(isvc.Namespace)
+	// log.Info("Checking PVC")
+	// if _, err := persistentVolumeClaims.Get(context.TODO(), pvcSpec.Name, metav1.GetOptions{}); err != nil {
+	// 	if !apierr.IsNotFound(err) {
+	// 		log.Info("Get pvc err", err)
+	// 	}
+	// 	log.Info("Creating PVC")
+	// 	if _, err := persistentVolumeClaims.Create(context.TODO(), &pvcSpec, metav1.CreateOptions{}); err != nil {
+	// 		log.Info("Create PVC err", err)
+	// 	}
+	// 	log.Info("PVC Created")
+	// 	if err := controllerutil.SetControllerReference(cachedModel, &pvcSpec, c.scheme); err != nil {
+	// 		log.Info("set controller reference", err)
+	// 	}
+	// }
 	return nil
 }
