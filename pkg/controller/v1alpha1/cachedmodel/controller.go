@@ -249,10 +249,26 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 	for _, pvc := range pvcs.Items {
+		log.Println("listing pvc")
 		log.Println(pvc.Name, pvc.Namespace)
+		log.Println("listing pvc done")
+		if _, ok := namespaces[pvc.Namespace]; !ok {
+			if pvc.Namespace == "kserve" {
+				continue
+			}
+			log.Println("deleting pvc", pvc.Name, " in ", pvc.Namespace)
+			persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace)
+			if err := persistentVolumeClaims.Delete(context.TODO(), pvc.Name, metav1.DeleteOptions{}); err != nil {
+				log.Println("deleting pvc in ", pvc.Namespace, "err", err)
+			}
+			log.Println("deleting pv", pvc.Namespace)
+			persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
+			if err := persistentVolumes.Delete(context.TODO(), pvc.Name+"-"+pvc.Namespace, metav1.DeleteOptions{}); err != nil {
+				log.Println("deleting pv err", err)
+			}
+		}
 	}
 
-	// Todo: get all ns to delete
 	for namespace := range namespaces {
 		pvSpec := cachedModel.Spec.PersistentVolume
 		pvSpec.Name = cachedModel.Name + "-" + namespace
@@ -302,13 +318,29 @@ func (c *CachedModelReconciler) myFunc(ctx context.Context, obj client.Object) [
 	isvc := &v1beta1.InferenceService{}
 	if err := c.Get(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, isvc); err != nil {
 		log.Println("err", err) // can be deleted
-		return []reconcile.Request{}
+		models := &v1alpha1.ClusterCachedModelList{}
+		if err := c.Client.List(context.TODO(), models); err != nil {
+			return []reconcile.Request{}
+		}
+
+		for _, model := range models.Items {
+			for _, isvc := range model.Status.InferenceServices {
+				if isvc.Namespace == obj.GetNamespace() && isvc.Name == obj.GetName() {
+					log.Println("Reconcile model cache (deleted isvc): ", isvc.Name)
+					return []reconcile.Request{{
+						NamespacedName: types.NamespacedName{
+							Name: model.Name,
+						}}}
+				}
+			}
+		}
+		// return []reconcile.Request{}
 	}
 	name := ""
 	var ok bool
 	if isvc.Labels != nil {
 		if name, ok = isvc.Labels[constants.ModelCacheEnabled]; ok {
-			log.Println("name", name)
+			log.Println("Model cache name on isvc: ", name)
 		}
 	}
 	if name == "" {
@@ -319,6 +351,8 @@ func (c *CachedModelReconciler) myFunc(ctx context.Context, obj client.Object) [
 		log.Println("err", err)
 		return []reconcile.Request{}
 	}
+
+	log.Println("Reconcile model cache: ", name)
 
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
