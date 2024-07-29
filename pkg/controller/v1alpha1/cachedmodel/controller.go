@@ -54,6 +54,10 @@ type CachedModelReconciler struct {
 	Scheme    *runtime.Scheme
 }
 
+var (
+	ownerKey = ".metadata.controller"
+)
+
 func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, cmd *string, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme, storageUri string, claimName string) *batchv1.Job {
 	jobs := clientset.BatchV1().Jobs(*namespace)
 	var backOffLimit int32 = 0
@@ -150,6 +154,9 @@ func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 	return nil, nil
 }
 
+// func (c *CachedModelReconciler) ReconcileForNamespace(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// }
+
 func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Hello from model cache controller")
 	// jobName := "hello"
@@ -224,13 +231,65 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	log.Println("Got isvcs", len(isvcs.Items))
 	isvcNames := []v1alpha1.NamespacedName{}
+	namespaces := make(map[string]struct{})
 	for _, isvc := range isvcs.Items {
 		log.Println(isvc.Name, isvc.Namespace)
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
+		namespaces[isvc.Namespace] = struct{}{}
 	}
 	cachedModel.Status.InferenceServices = isvcNames
 	if err := c.Status().Update(context.TODO(), cachedModel); err != nil {
 		log.Fatalln("cannot update status", err)
+	}
+
+	pvcs := v1.PersistentVolumeClaimList{}
+	log.Println("pvcs")
+	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: req.Name}); err != nil {
+		log.Fatalln(err, "unable to list pvcs")
+		return ctrl.Result{}, err
+	}
+	for _, pvc := range pvcs.Items {
+		log.Println(pvc.Name, pvc.Namespace)
+	}
+
+	// Todo: get all ns to delete
+	for namespace := range namespaces {
+		pvSpec := cachedModel.Spec.PersistentVolume
+		pvSpec.Name = cachedModel.Name + "-" + namespace
+		persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
+		if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
+			if !apierr.IsNotFound(err) {
+				log.Println("Get pv err", err)
+			}
+			if err := controllerutil.SetControllerReference(cachedModel, &pvSpec, c.Scheme); err != nil {
+				log.Println("set controller reference", err)
+			}
+			log.Println("Creating PV")
+			if _, err := persistentVolumes.Create(context.TODO(), &pvSpec, metav1.CreateOptions{}); err != nil {
+				log.Println("Create pv err", err)
+			}
+			log.Println("PV Created")
+		}
+		log.Println("PV Exists")
+
+		pvcSpec := cachedModel.Spec.PersistentVolumeClaim
+		pvcSpec.Name = cachedModel.Name
+		pvcSpec.Spec.VolumeName = pvSpec.Name
+		persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(namespace)
+		log.Println("Checking PVC")
+		if _, err := persistentVolumeClaims.Get(context.TODO(), pvcSpec.Name, metav1.GetOptions{}); err != nil {
+			if !apierr.IsNotFound(err) {
+				log.Println("Get pvc err", err)
+			}
+			if err := controllerutil.SetControllerReference(cachedModel, &pvcSpec, c.Scheme); err != nil {
+				log.Println("set controller reference", err)
+			}
+			log.Println("Creating PVC")
+			if _, err := persistentVolumeClaims.Create(context.TODO(), &pvcSpec, metav1.CreateOptions{}); err != nil {
+				log.Println("Create PVC err", err)
+			}
+			log.Println("PVC Created")
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -268,6 +327,22 @@ func (c *CachedModelReconciler) myFunc(ctx context.Context, obj client.Object) [
 }
 
 func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
+		pvc := rawObj.(*v1.PersistentVolumeClaim)
+		owner := metav1.GetControllerOf(pvc)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != "serving.kserve.io/v1alpha1" || owner.Kind != "ClusterCachedModel" {
+			return nil
+		}
+
+		// ...and if so, return it
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.ClusterCachedModel{}).
 		Owns(&batchv1.Job{}).
