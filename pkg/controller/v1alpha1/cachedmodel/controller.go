@@ -226,9 +226,13 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	isvcs := &v1beta1.InferenceServiceList{}
-	if err = c.Client.List(context.TODO(), isvcs, client.MatchingLabels{constants.ModelCacheEnabled: cachedModel.Name}); err != nil {
+	// if err = c.Client.List(context.TODO(), isvcs, client.MatchingLabels{constants.ModelCacheEnabled: cachedModel.Name}); err != nil {
+	// 	log.Fatalln(err)
+	// }
+	if err = c.Client.List(context.TODO(), isvcs, client.MatchingFields{ownerKey: cachedModel.Name}); err != nil {
 		log.Fatalln(err)
 	}
+
 	log.Println("Got isvcs", len(isvcs.Items))
 	isvcNames := []v1alpha1.NamespacedName{}
 	namespaces := make(map[string]struct{})
@@ -373,6 +377,16 @@ func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 		// ...and if so, return it
 		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1beta1.InferenceService{}, ownerKey, func(rawObj client.Object) []string {
+		isvc := rawObj.(*v1beta1.InferenceService)
+		if model, ok := isvc.GetLabels()[constants.ModelCacheEnabled]; ok {
+			return []string{model}
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
