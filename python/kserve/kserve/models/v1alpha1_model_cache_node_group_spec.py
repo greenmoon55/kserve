@@ -48,25 +48,33 @@ class V1alpha1ModelCacheNodeGroupSpec(object):
     """
     openapi_types = {
         'node_selector': 'dict(str, str)',
+        'persistent_volume': 'V1PersistentVolume',
+        'persistent_volume_claim': 'V1PersistentVolumeClaim',
         'storage_limit': 'ResourceQuantity'
     }
 
     attribute_map = {
         'node_selector': 'nodeSelector',
+        'persistent_volume': 'persistentVolume',
+        'persistent_volume_claim': 'persistentVolumeClaim',
         'storage_limit': 'storageLimit'
     }
 
-    def __init__(self, node_selector=None, storage_limit=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, node_selector=None, persistent_volume=None, persistent_volume_claim=None, storage_limit=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ModelCacheNodeGroupSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._node_selector = None
+        self._persistent_volume = None
+        self._persistent_volume_claim = None
         self._storage_limit = None
         self.discriminator = None
 
         self.node_selector = node_selector
+        self.persistent_volume = persistent_volume
+        self.persistent_volume_claim = persistent_volume_claim
         self.storage_limit = storage_limit
 
     @property
@@ -91,6 +99,52 @@ class V1alpha1ModelCacheNodeGroupSpec(object):
             raise ValueError("Invalid value for `node_selector`, must not be `None`")  # noqa: E501
 
         self._node_selector = node_selector
+
+    @property
+    def persistent_volume(self):
+        """Gets the persistent_volume of this V1alpha1ModelCacheNodeGroupSpec.  # noqa: E501
+
+
+        :return: The persistent_volume of this V1alpha1ModelCacheNodeGroupSpec.  # noqa: E501
+        :rtype: V1PersistentVolume
+        """
+        return self._persistent_volume
+
+    @persistent_volume.setter
+    def persistent_volume(self, persistent_volume):
+        """Sets the persistent_volume of this V1alpha1ModelCacheNodeGroupSpec.
+
+
+        :param persistent_volume: The persistent_volume of this V1alpha1ModelCacheNodeGroupSpec.  # noqa: E501
+        :type: V1PersistentVolume
+        """
+        if self.local_vars_configuration.client_side_validation and persistent_volume is None:  # noqa: E501
+            raise ValueError("Invalid value for `persistent_volume`, must not be `None`")  # noqa: E501
+
+        self._persistent_volume = persistent_volume
+
+    @property
+    def persistent_volume_claim(self):
+        """Gets the persistent_volume_claim of this V1alpha1ModelCacheNodeGroupSpec.  # noqa: E501
+
+
+        :return: The persistent_volume_claim of this V1alpha1ModelCacheNodeGroupSpec.  # noqa: E501
+        :rtype: V1PersistentVolumeClaim
+        """
+        return self._persistent_volume_claim
+
+    @persistent_volume_claim.setter
+    def persistent_volume_claim(self, persistent_volume_claim):
+        """Sets the persistent_volume_claim of this V1alpha1ModelCacheNodeGroupSpec.
+
+
+        :param persistent_volume_claim: The persistent_volume_claim of this V1alpha1ModelCacheNodeGroupSpec.  # noqa: E501
+        :type: V1PersistentVolumeClaim
+        """
+        if self.local_vars_configuration.client_side_validation and persistent_volume_claim is None:  # noqa: E501
+            raise ValueError("Invalid value for `persistent_volume_claim`, must not be `None`")  # noqa: E501
+
+        self._persistent_volume_claim = persistent_volume_claim
 
     @property
     def storage_limit(self):

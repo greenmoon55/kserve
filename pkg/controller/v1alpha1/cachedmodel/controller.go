@@ -15,8 +15,10 @@ limitations under the License.
 */
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=modelcachenodegroups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clustercachedmodels,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clustercachedmodels/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 // +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
@@ -37,6 +39,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -58,10 +61,10 @@ var (
 	ownerKey = ".metadata.controller"
 )
 
-func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, cmd *string, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme, storageUri string, claimName string) *batchv1.Job {
+func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, cmd *string, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme, storageUri string, claimName string, node string) *batchv1.Job {
 	jobs := clientset.BatchV1().Jobs(*namespace)
 	var backOffLimit int32 = 0
-	log.Printf("Job %s %s", *namespace, *jobName)
+	log.Printf("Job %s %s %s", *namespace, *jobName, node)
 
 	job, err := jobs.Get(context.TODO(), *jobName, metav1.GetOptions{})
 	if err != nil {
@@ -87,6 +90,7 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 		Spec: batchv1.JobSpec{
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
+					NodeName: node,
 					Containers: []v1.Container{
 						{
 							Name:  *jobName,
@@ -122,7 +126,6 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 	if err := controllerutil.SetControllerReference(cachedModel, jobSpec, scheme); err != nil {
 		log.Fatalln("set controller reference", err)
 	}
-
 	job, err = jobs.Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	if err != nil {
 		log.Fatalln("Failed to create K8s job.", err)
@@ -170,7 +173,13 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, err
 	}
 
-	pvSpec := cachedModel.Spec.PersistentVolume
+	nodeGroup := &v1alpha1api.ModelCacheNodeGroup{}
+	nodeGroupNamespacedName := types.NamespacedName{Name: cachedModel.Spec.NodeGroup}
+	if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	pvSpec := nodeGroup.Spec.PersistentVolume
 	pvSpec.Name = cachedModel.Name + "-download"
 	persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
 	if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
@@ -188,7 +197,7 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	log.Println("PV Exists")
 
-	pvcSpec := cachedModel.Spec.PersistentVolumeClaim
+	pvcSpec := nodeGroup.Spec.PersistentVolumeClaim
 	pvcSpec.Name = cachedModel.Name
 	pvcSpec.Spec.VolumeName = pvSpec.Name
 	persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(namespace)
@@ -216,14 +225,34 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log.Println(req.NamespacedName.Name)
 	log.Println(req.NamespacedName.Namespace)
 
-	job := launchK8sJob(c.Clientset, &req.NamespacedName.Name, &container.Image, &entryCommand, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name)
-	if job.Status.Succeeded == 1 {
-		log.Println("Update status to ready")
-		cachedModel.Status.OverallStatus = v1alpha1.ModelReady
-	} else {
-		log.Println("Update status to not ready")
-		cachedModel.Status.OverallStatus = v1alpha1.ModelDownloading
+	nodes := &v1.NodeList{}
+	selector, _ := labels.ValidatedSelectorFromSet(nodeGroup.Spec.NodeSelector)
+	if err = c.Client.List(context.TODO(), nodes, &client.ListOptions{LabelSelector: selector}); err != nil {
+		log.Fatalln(err)
 	}
+
+	log.Println("print nodes")
+	for _, node := range nodes.Items {
+		log.Println(node.Name)
+		jobName := req.NamespacedName.Name + "-" + node.Name
+		job := launchK8sJob(c.Clientset, &jobName, &container.Image, &entryCommand, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name, node.Name)
+		if job.Status.Succeeded == 1 {
+			log.Println("Update status to ready")
+			cachedModel.Status.OverallStatus = v1alpha1.ModelReady
+		} else {
+			log.Println("Update status to not ready")
+			cachedModel.Status.OverallStatus = v1alpha1.ModelDownloading
+		}
+	}
+
+	// job := launchK8sJob(c.Clientset, &req.NamespacedName.Name, &container.Image, &entryCommand, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name, "nodeName")
+	// if job.Status.Succeeded == 1 {
+	// 	log.Println("Update status to ready")
+	// 	cachedModel.Status.OverallStatus = v1alpha1.ModelReady
+	// } else {
+	// 	log.Println("Update status to not ready")
+	// 	cachedModel.Status.OverallStatus = v1alpha1.ModelDownloading
+	// }
 
 	isvcs := &v1beta1.InferenceServiceList{}
 	// if err = c.Client.List(context.TODO(), isvcs, client.MatchingLabels{constants.ModelCacheEnabled: cachedModel.Name}); err != nil {
@@ -274,7 +303,7 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	for namespace := range namespaces {
-		pvSpec := cachedModel.Spec.PersistentVolume
+		pvSpec := nodeGroup.Spec.PersistentVolume
 		pvSpec.Name = cachedModel.Name + "-" + namespace
 		persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
 		if _, err := persistentVolumes.Get(context.TODO(), pvSpec.Name, metav1.GetOptions{}); err != nil {
@@ -292,7 +321,7 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		log.Println("PV Exists")
 
-		pvcSpec := cachedModel.Spec.PersistentVolumeClaim
+		pvcSpec := nodeGroup.Spec.PersistentVolumeClaim
 		pvcSpec.Name = cachedModel.Name
 		pvcSpec.Spec.VolumeName = pvSpec.Name
 		persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(namespace)

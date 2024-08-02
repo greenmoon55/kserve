@@ -298,26 +298,12 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
-					"persistentVolume": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PV spec template",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolume"),
-						},
-					},
-					"persistentVolumeClaim": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PVC spec template",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
-						},
-					},
 				},
-				Required: []string{"storageUri", "modelSize", "nodeGroup", "storageType", "cleanupPolicy", "persistentVolume", "persistentVolumeClaim"},
+				Required: []string{"storageUri", "modelSize", "nodeGroup", "storageType", "cleanupPolicy"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolume", "k8s.io/api/core/v1.PersistentVolumeClaim", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -926,12 +912,6 @@ func schema_pkg_apis_serving_v1alpha1_ModelCacheNodeGroup(ref common.ReferenceCa
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelCacheNodeGroupSpec"),
 						},
 					},
-					"disabled": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 				},
 			},
 		},
@@ -992,7 +972,7 @@ func schema_pkg_apis_serving_v1alpha1_ModelCacheNodeGroupSpec(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ModelCacheNodeGroupSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
+				Description: "ModelCacheNodeGroupSpec defines a group of nodes for to download the model to.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageLimit": {
@@ -1015,12 +995,26 @@ func schema_pkg_apis_serving_v1alpha1_ModelCacheNodeGroupSpec(ref common.Referen
 							},
 						},
 					},
+					"persistentVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PV spec template",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolume"),
+						},
+					},
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PVC spec template",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
+						},
+					},
 				},
-				Required: []string{"storageLimit", "nodeSelector"},
+				Required: []string{"storageLimit", "nodeSelector", "persistentVolume", "persistentVolumeClaim"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.PersistentVolume", "k8s.io/api/core/v1.PersistentVolumeClaim", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

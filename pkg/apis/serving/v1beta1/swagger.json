@@ -98,9 +98,7 @@
         "modelSize",
         "nodeGroup",
         "storageType",
-        "cleanupPolicy",
-        "persistentVolume",
-        "persistentVolumeClaim"
+        "cleanupPolicy"
       ],
       "properties": {
         "cleanupPolicy": {
@@ -116,16 +114,6 @@
           "description": "A group of nodes to cache the model on.",
           "type": "string",
           "default": ""
-        },
-        "persistentVolume": {
-          "description": "PV spec template",
-          "default": {},
-          "$ref": "#/definitions/v1.PersistentVolume"
-        },
-        "persistentVolumeClaim": {
-          "description": "PVC spec template",
-          "default": {},
-          "$ref": "#/definitions/v1.PersistentVolumeClaim"
         },
         "storageType": {
           "description": "only local is supported for now",
@@ -466,9 +454,6 @@
           "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
           "type": "string"
         },
-        "disabled": {
-          "type": "boolean"
-        },
         "kind": {
           "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
           "type": "string"
@@ -511,11 +496,13 @@
       }
     },
     "v1alpha1.ModelCacheNodeGroupSpec": {
-      "description": "ModelCacheNodeGroupSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
+      "description": "ModelCacheNodeGroupSpec defines a group of nodes for to download the model to.",
       "type": "object",
       "required": [
         "storageLimit",
-        "nodeSelector"
+        "nodeSelector",
+        "persistentVolume",
+        "persistentVolumeClaim"
       ],
       "properties": {
         "nodeSelector": {
@@ -524,6 +511,16 @@
             "type": "string",
             "default": ""
           }
+        },
+        "persistentVolume": {
+          "description": "PV spec template",
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolume"
+        },
+        "persistentVolumeClaim": {
+          "description": "PVC spec template",
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeClaim"
         },
         "storageLimit": {
           "$ref": "#/definitions/resource.Quantity"

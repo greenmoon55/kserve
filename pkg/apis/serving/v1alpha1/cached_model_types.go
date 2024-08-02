@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -36,12 +35,6 @@ type ClusterCachedModelSpec struct {
 	StorageType StorageType `json:"storageType"`
 	// Whether model cache controller creates a job to delete models on local disks.
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
-	// PV spec template
-	PersistentVolume corev1.PersistentVolume `json:"persistentVolume"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
-	// PVC spec template
-	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
 // StorageType enum

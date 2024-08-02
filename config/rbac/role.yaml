@@ -90,6 +90,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims
   verbs:
   - create
@@ -330,6 +338,18 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - modelcachenodegroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - serving.kserve.io
   resources:

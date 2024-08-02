@@ -50,8 +50,6 @@ class V1alpha1ClusterCachedModelSpec(object):
         'cleanup_policy': 'str',
         'model_size': 'ResourceQuantity',
         'node_group': 'str',
-        'persistent_volume': 'V1PersistentVolume',
-        'persistent_volume_claim': 'V1PersistentVolumeClaim',
         'storage_type': 'str',
         'storage_uri': 'str'
     }
@@ -60,13 +58,11 @@ class V1alpha1ClusterCachedModelSpec(object):
         'cleanup_policy': 'cleanupPolicy',
         'model_size': 'modelSize',
         'node_group': 'nodeGroup',
-        'persistent_volume': 'persistentVolume',
-        'persistent_volume_claim': 'persistentVolumeClaim',
         'storage_type': 'storageType',
         'storage_uri': 'storageUri'
     }
 
-    def __init__(self, cleanup_policy='', model_size=None, node_group='', persistent_volume=None, persistent_volume_claim=None, storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cleanup_policy='', model_size=None, node_group='', storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1ClusterCachedModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -75,8 +71,6 @@ class V1alpha1ClusterCachedModelSpec(object):
         self._cleanup_policy = None
         self._model_size = None
         self._node_group = None
-        self._persistent_volume = None
-        self._persistent_volume_claim = None
         self._storage_type = None
         self._storage_uri = None
         self.discriminator = None
@@ -84,8 +78,6 @@ class V1alpha1ClusterCachedModelSpec(object):
         self.cleanup_policy = cleanup_policy
         self.model_size = model_size
         self.node_group = node_group
-        self.persistent_volume = persistent_volume
-        self.persistent_volume_claim = persistent_volume_claim
         self.storage_type = storage_type
         self.storage_uri = storage_uri
 
@@ -161,52 +153,6 @@ class V1alpha1ClusterCachedModelSpec(object):
             raise ValueError("Invalid value for `node_group`, must not be `None`")  # noqa: E501
 
         self._node_group = node_group
-
-    @property
-    def persistent_volume(self):
-        """Gets the persistent_volume of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-
-
-        :return: The persistent_volume of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :rtype: V1PersistentVolume
-        """
-        return self._persistent_volume
-
-    @persistent_volume.setter
-    def persistent_volume(self, persistent_volume):
-        """Sets the persistent_volume of this V1alpha1ClusterCachedModelSpec.
-
-
-        :param persistent_volume: The persistent_volume of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :type: V1PersistentVolume
-        """
-        if self.local_vars_configuration.client_side_validation and persistent_volume is None:  # noqa: E501
-            raise ValueError("Invalid value for `persistent_volume`, must not be `None`")  # noqa: E501
-
-        self._persistent_volume = persistent_volume
-
-    @property
-    def persistent_volume_claim(self):
-        """Gets the persistent_volume_claim of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-
-
-        :return: The persistent_volume_claim of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :rtype: V1PersistentVolumeClaim
-        """
-        return self._persistent_volume_claim
-
-    @persistent_volume_claim.setter
-    def persistent_volume_claim(self, persistent_volume_claim):
-        """Sets the persistent_volume_claim of this V1alpha1ClusterCachedModelSpec.
-
-
-        :param persistent_volume_claim: The persistent_volume_claim of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :type: V1PersistentVolumeClaim
-        """
-        if self.local_vars_configuration.client_side_validation and persistent_volume_claim is None:  # noqa: E501
-            raise ValueError("Invalid value for `persistent_volume_claim`, must not be `None`")  # noqa: E501
-
-        self._persistent_volume_claim = persistent_volume_claim
 
     @property
     def storage_type(self):
