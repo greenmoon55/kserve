@@ -26,7 +26,7 @@ spec:
       - command:
         - /manager
         image: ko://github.com/kserve/kserve/cmd/manager
-        imagePullPolicy: Always
+        imagePullPolicy: Never
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

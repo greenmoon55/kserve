@@ -35,6 +35,7 @@ import (
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -61,7 +62,7 @@ var (
 	ownerKey = ".metadata.controller"
 )
 
-func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, cmd *string, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme, storageUri string, claimName string, node string) *batchv1.Job {
+func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *string, delete bool, namespace *string, cachedModel *v1alpha1api.ClusterCachedModel, scheme *runtime.Scheme, storageUri string, claimName string, node string) *batchv1.Job {
 	jobs := clientset.BatchV1().Jobs(*namespace)
 	var backOffLimit int32 = 0
 	log.Printf("Job %s %s %s", *namespace, *jobName, node)
@@ -101,7 +102,7 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 								MountPath: "/mnt/models",
 								Name:      "kserve-pvc-source",
 								ReadOnly:  false,
-								SubPath:   "models/" + *jobName,
+								SubPath:   "models/" + cachedModel.Name,
 							},
 							},
 						},
@@ -121,6 +122,15 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 			},
 			BackoffLimit: &backOffLimit,
 		},
+	}
+
+	if delete {
+		jobSpec.Spec.Template.Spec.Containers[0].Command = []string{"/bin/sh", "-c", "rm -rf /mnt/models/*"}
+		jobSpec.Spec.Template.Spec.Containers[0].Args = nil
+		// jobSpec.Spec.Template.Spec.Containers[0].Command = []string{"sleep", "300000"}
+		// jobSpec.Spec.Template.Spec.Containers[0].Command = strings.Split("find . ! -type d -exec rm '{}' \\;", " ")
+		jobSpec.Spec.Template.Spec.Containers[0].SecurityContext = &v1.SecurityContext{}
+		jobSpec.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser = new(int64)
 	}
 
 	if err := controllerutil.SetControllerReference(cachedModel, jobSpec, scheme); err != nil {
@@ -164,7 +174,6 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	c.Log.Info("Hello from model cache controller")
 	// jobName := "hello"
 	// containerImage := "perl:5.34.0"
-	entryCommand := "perl -Mbignum=bpi -wle print bpi(2000)"
 	namespace := "kserve"
 	log.Println("reconcile: ", req.NamespacedName)
 
@@ -177,6 +186,55 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	nodeGroupNamespacedName := types.NamespacedName{Name: cachedModel.Spec.NodeGroup}
 	if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
 		return reconcile.Result{}, err
+	}
+
+	finalizerName := "cachedModel.finalizers"
+
+	if cachedModel.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !utils.Includes(cachedModel.ObjectMeta.Finalizers, finalizerName) {
+			cachedModel.ObjectMeta.Finalizers = append(cachedModel.ObjectMeta.Finalizers, finalizerName)
+			if err := c.Update(context.Background(), cachedModel); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if utils.Includes(cachedModel.ObjectMeta.Finalizers, finalizerName) {
+			// our finalizer is present, so lets handle any external dependency
+
+			// Check job status and decide whether to delete finalizer
+			log.Println("being deleted, finalizer exists")
+			// if err := c.deleteExternalResources(isvc); err != nil {
+			// 	// if fail to delete the external dependency here, return with error
+			// 	// so that it can be retried
+			// 	return ctrl.Result{}, err
+			// }
+
+			// remove our finalizer from the list and update it.
+			// isvc.ObjectMeta.Finalizers = utils.RemoveString(isvc.ObjectMeta.Finalizers, finalizerName)
+			// if err := r.Update(context.Background(), isvc); err != nil {
+			// 	return ctrl.Result{}, err
+			// }
+			image := "kserve/storage-initializer:latest"
+			nodes := &v1.NodeList{}
+			selector, _ := labels.ValidatedSelectorFromSet(nodeGroup.Spec.NodeSelector)
+			if err := c.Client.List(context.TODO(), nodes, &client.ListOptions{LabelSelector: selector}); err != nil {
+				log.Fatalln(err)
+			}
+
+			log.Println("print nodes")
+			for _, node := range nodes.Items {
+				log.Println(node.Name)
+				jobName := req.NamespacedName.Name + "-" + node.Name + "-delete"
+				launchK8sJob(c.Clientset, &jobName, &image, true, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, cachedModel.Name, node.Name)
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
 	}
 
 	pvSpec := nodeGroup.Spec.PersistentVolume
@@ -235,7 +293,7 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	for _, node := range nodes.Items {
 		log.Println(node.Name)
 		jobName := req.NamespacedName.Name + "-" + node.Name
-		job := launchK8sJob(c.Clientset, &jobName, &container.Image, &entryCommand, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name, node.Name)
+		job := launchK8sJob(c.Clientset, &jobName, &container.Image, false, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name, node.Name)
 		if job.Status.Succeeded == 1 {
 			log.Println("Update status to ready")
 			cachedModel.Status.OverallStatus = v1alpha1.ModelReady
