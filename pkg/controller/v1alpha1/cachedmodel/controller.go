@@ -129,8 +129,8 @@ func launchK8sJob(clientset *kubernetes.Clientset, jobName *string, image *strin
 		jobSpec.Spec.Template.Spec.Containers[0].Args = nil
 		// jobSpec.Spec.Template.Spec.Containers[0].Command = []string{"sleep", "300000"}
 		// jobSpec.Spec.Template.Spec.Containers[0].Command = strings.Split("find . ! -type d -exec rm '{}' \\;", " ")
-		jobSpec.Spec.Template.Spec.Containers[0].SecurityContext = &v1.SecurityContext{}
-		jobSpec.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser = new(int64)
+		// jobSpec.Spec.Template.Spec.Containers[0].SecurityContext = &v1.SecurityContext{}
+		// jobSpec.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser = new(int64)
 	}
 
 	if err := controllerutil.SetControllerReference(cachedModel, jobSpec, scheme); err != nil {
