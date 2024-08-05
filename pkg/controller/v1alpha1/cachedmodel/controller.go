@@ -302,18 +302,23 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	log.Println("print nodes")
+	totalNodes := 0
+	successfulNodes := 0
 	for _, node := range nodes.Items {
+		totalNodes += 1
 		log.Println(node.Name)
 		jobName := req.NamespacedName.Name + "-" + node.Name
 		job := launchK8sJob(c.Clientset, &jobName, &container.Image, false, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name, node.Name)
 		if job.Status.Succeeded == 1 {
 			log.Println("Update status to ready")
 			cachedModel.Status.OverallStatus = v1alpha1.ModelReady
+			successfulNodes += 1
 		} else {
 			log.Println("Update status to not ready")
 			cachedModel.Status.OverallStatus = v1alpha1.ModelDownloading
 		}
 	}
+	cachedModel.Status.ModelCopies = &v1alpha1api.ModelCopies{TotalCopies: totalNodes, FailedCopies: totalNodes - successfulNodes}
 
 	// job := launchK8sJob(c.Clientset, &req.NamespacedName.Name, &container.Image, &entryCommand, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, pvcSpec.Name, "nodeName")
 	// if job.Status.Succeeded == 1 {
@@ -463,6 +468,49 @@ func (c *CachedModelReconciler) myFunc(ctx context.Context, obj client.Object) [
 		}}}
 }
 
+func (c *CachedModelReconciler) nodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	log.Println("In nodeFunc")
+	log.Println(obj.GetName())
+	log.Println(obj.GetNamespace())
+	node := &v1.Node{}
+	requests := []reconcile.Request{}
+	if err := c.Get(ctx, types.NamespacedName{Name: obj.GetName()}, node); err != nil {
+		log.Println("err", err) // can be deleted
+	}
+	models := &v1alpha1.ClusterCachedModelList{}
+	if err := c.Client.List(context.TODO(), models); err != nil {
+		return []reconcile.Request{}
+	}
+
+	for _, model := range models.Items {
+		nodeGroup := &v1alpha1api.ModelCacheNodeGroup{}
+		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroup}
+		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
+			log.Println("get nodegroup failed")
+			continue
+		}
+		nodeSelector := nodeGroup.Spec.NodeSelector
+		equal := true
+		for k, expectedValue := range nodeSelector {
+			if v, ok := node.Labels[k]; ok {
+				if v != expectedValue {
+					log.Println(k, v, expectedValue, "does not match")
+					equal = false
+					break
+				}
+			}
+		}
+		if equal {
+			log.Println("new node for model ", model.Name)
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: model.Name,
+				}})
+		}
+	}
+	return requests
+}
+
 func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
 		pvc := rawObj.(*v1.PersistentVolumeClaim)
@@ -496,5 +544,6 @@ func (c *CachedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.PersistentVolume{}).
 		Owns(&v1.PersistentVolumeClaim{}).
 		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.myFunc)).
+		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc)).
 		Complete(c)
 }
