@@ -226,10 +226,22 @@ func (c *CachedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 
 			log.Println("print nodes")
+			pendingNodes := 0
 			for _, node := range nodes.Items {
 				log.Println(node.Name)
 				jobName := req.NamespacedName.Name + "-" + node.Name + "-delete"
-				launchK8sJob(c.Clientset, &jobName, &image, true, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, cachedModel.Name, node.Name)
+
+				job := launchK8sJob(c.Clientset, &jobName, &image, true, &namespace, cachedModel, c.Scheme, cachedModel.Spec.StorageUri, cachedModel.Name, node.Name)
+				if job.Status.Succeeded != 1 {
+					pendingNodes += 1
+				}
+			}
+			if pendingNodes == 0 {
+				// remove our finalizer from the list and update it.
+				cachedModel.ObjectMeta.Finalizers = utils.RemoveString(cachedModel.ObjectMeta.Finalizers, finalizerName)
+				if err := c.Update(context.Background(), cachedModel); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 		}
 
