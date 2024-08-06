@@ -44,7 +44,7 @@ const (
 )
 
 // OverallStatus enum
-// +kubebuilder:validation:Enum="";Ready;Unknown;Downloading;Deleting;Deleted
+// +kubebuilder:validation:Enum="";Ready;Unknown;Downloading;Deleting
 type OverallStatus string
 
 // OverallStatus Enum values
@@ -53,14 +53,11 @@ const (
 	ModelPartiallyReady OverallStatus = "PartiallyReady"
 	ModelDownloading    OverallStatus = "Downloading"
 	ModelDeleting       OverallStatus = "Deleting"
-	ModelDeleted        OverallStatus = "Deleted"
 )
 
 type ModelCopies struct {
-	// How many copies of this predictor's models failed to load recently
 	// +kubebuilder:default=0
-	FailedCopies int `json:"failedCopies"`
-	// Total number copies of this predictor's models that are currently loaded
+	SuccessfulCopies int `json:"successfulCopies"`
 	// +optional
 	TotalCopies int `json:"totalCopies,omitempty"`
 }

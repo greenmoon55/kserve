@@ -61,13 +61,13 @@ spec:
             properties:
               copies:
                 properties:
-                  failedCopies:
+                  successfulCopies:
                     default: 0
                     type: integer
                   totalCopies:
                     type: integer
                 required:
-                - failedCopies
+                - successfulCopies
                 type: object
               infereneceServices:
                 items:
@@ -96,7 +96,6 @@ spec:
                 - Unknown
                 - Downloading
                 - Deleting
-                - Deleted
                 type: string
             type: object
         type: object
