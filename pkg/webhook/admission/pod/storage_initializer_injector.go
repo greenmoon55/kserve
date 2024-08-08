@@ -182,6 +182,21 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	return nil
 }
 
+func getModelCacheSpecForStorageUri(storageUri string, client client.Client) (*v1alpha1.ClusterCachedModel, error) {
+	models := &v1alpha1.ClusterCachedModelList{}
+	if err := client.List(context.TODO(), models); err != nil {
+		return nil, err
+	}
+
+	for _, model := range models.Items {
+		if model.Spec.StorageUri == storageUri {
+			return &model, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
@@ -220,6 +235,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	podVolumes := []v1.Volume{}
 	storageInitializerMounts := []v1.VolumeMount{}
+	var cachedModel *v1alpha1.ClusterCachedModel
+	var err error
+	if cachedModel, err = getModelCacheSpecForStorageUri(srcURI, mi.client); err != nil {
+		return err
+	}
+	if cachedModel != nil {
+		srcURI = "pvc://" + cachedModel.Name + "/models/" + cachedModel.Name
+	}
 
 	// For PVC source URIs we need to mount the source to be able to access it
 	// See design and discussion here: https://github.com/kserve/kserve/issues/148

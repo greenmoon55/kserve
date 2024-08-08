@@ -17,17 +17,20 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Component can be reconciled to create underlying resources for an InferenceService
@@ -94,4 +97,19 @@ func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]
 		return true
 	}
 	return false
+}
+
+func getModelCacheForStorageUri(storageUri string, client client.Client) (*v1alpha1.ClusterCachedModel, error) {
+	models := &v1alpha1.ClusterCachedModelList{}
+	if err := client.List(context.TODO(), models); err != nil {
+		return nil, err
+	}
+
+	for _, model := range models.Items {
+		if model.Spec.StorageUri == storageUri {
+			return &model, nil
+		}
+	}
+
+	return nil, nil
 }
